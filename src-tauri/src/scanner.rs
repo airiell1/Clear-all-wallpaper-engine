@@ -16,6 +16,7 @@ pub struct FolderInfo {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(dead_code)]
 pub struct ScanProgress {
     pub current_path: String,
     pub scanned_count: usize,
@@ -116,6 +117,7 @@ fn calculate_folder_size(path: &Path) -> u64 {
 }
 
 /// 단일 스레드 스캔 (작은 폴더용)
+#[allow(dead_code)]
 pub fn scan_folder_simple(
     root_path: &str,
     depth: usize,

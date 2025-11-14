@@ -151,6 +151,7 @@ fn find_preview_file(folder_path: &str) -> (Option<String>, PreviewType) {
 }
 
 /// 여러 폴더의 project.json 일괄 읽기 (병렬)
+#[allow(dead_code)]
 pub fn read_projects_parallel(folder_paths: Vec<String>) -> Vec<Option<ProjectInfo>> {
     use rayon::prelude::*;
 
@@ -161,6 +162,7 @@ pub fn read_projects_parallel(folder_paths: Vec<String>) -> Vec<Option<ProjectIn
 }
 
 /// 타입별 필터링
+#[allow(dead_code)]
 pub fn filter_by_type(
     items: Vec<(String, ProjectInfo)>,
     wallpaper_type: WallpaperType,
