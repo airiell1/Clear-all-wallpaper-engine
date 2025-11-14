@@ -14,8 +14,22 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Wait for Tauri to be ready
     if (window.__TAURI__) {
-        invoke = window.__TAURI__.core.invoke;
-        open = window.__TAURI__.shell.open;
+        console.log('Tauri object:', window.__TAURI__);
+
+        // Tauri v2 API structure
+        if (window.__TAURI__.core) {
+            invoke = window.__TAURI__.core.invoke;
+            console.log('✅ invoke loaded');
+        }
+
+        if (window.__TAURI__.shell) {
+            open = window.__TAURI__.shell.open;
+            console.log('✅ shell.open loaded');
+        } else if (window.__TAURI__.plugin?.shell) {
+            open = window.__TAURI__.plugin.shell.open;
+            console.log('✅ plugin.shell.open loaded');
+        }
+
         console.log('✅ Tauri API loaded');
     } else {
         console.error('❌ Tauri API not available');
