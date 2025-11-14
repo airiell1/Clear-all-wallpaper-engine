@@ -1,41 +1,49 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Wallpaper Engine Cleaner</title>
     <link rel="stylesheet" href="styles.css">
+    <script src="i18n.js"></script>
 </head>
 <body>
     <div class="container">
-        <!-- 상단 컨트롤 -->
+        <!-- Header Controls -->
         <header class="header">
-            <h1>🗂️ Wallpaper Engine Cleaner</h1>
+            <div class="header-top">
+                <h1 data-i18n="appTitle">🗂️ Wallpaper Engine Cleaner</h1>
+                <div class="lang-switcher">
+                    <button class="lang-btn active" data-lang="en" onclick="i18n.setLanguage('en')">EN</button>
+                    <button class="lang-btn" data-lang="ko" onclick="i18n.setLanguage('ko')">한국어</button>
+                </div>
+            </div>
+
             <div class="controls">
                 <div class="path-group">
-                    <input type="text" id="pathInput" placeholder="Steam 경로 자동 감지 중..." readonly>
-                    <button id="browseBtn" class="btn btn-primary">📁 찾아보기</button>
-                    <button id="scanBtn" class="btn btn-success">🔍 스캔</button>
-                    <button id="findEmptyBtn" class="btn btn-warning">📭 빈 폴더 찾기</button>
+                    <input type="text" id="pathInput" data-i18n="pathPlaceholder" placeholder="Detecting Steam path..." readonly>
+                    <button id="browseBtn" class="btn btn-primary" data-i18n="browseBtn">📁 Browse</button>
+                    <button id="scanBtn" class="btn btn-success" data-i18n="scanBtn">🔍 Scan</button>
+                    <button id="findEmptyBtn" class="btn btn-warning" data-i18n="findEmptyBtn">📭 Find Empty</button>
                 </div>
 
                 <div class="options">
                     <label>
-                        <input type="radio" name="depth" value="1" checked> 1단계
+                        <input type="radio" name="depth" value="1" checked> <span data-i18n="depth1">Level 1</span>
                     </label>
                     <label>
-                        <input type="radio" name="depth" value="2"> 2단계
+                        <input type="radio" name="depth" value="2"> <span data-i18n="depth2">Level 2</span>
                     </label>
                     <label>
-                        <input type="radio" name="depth" value="999"> 전체
+                        <input type="radio" name="depth" value="999"> <span data-i18n="depthAll">All</span>
                     </label>
 
                     <label class="ml-20">
-                        <input type="checkbox" id="showFiles"> 파일도 표시
+                        <input type="checkbox" id="showFiles"> <span data-i18n="showFiles">Show Files</span>
                     </label>
 
                     <select id="minSize" class="ml-20">
-                        <option value="0">최소 크기: 전체</option>
+                        <option value="0" data-i18n="minSizeAll">Min Size: All</option>
                         <option value="104857600">100 MB</option>
                         <option value="524288000">500 MB</option>
                         <option value="1073741824">1 GB</option>
@@ -43,70 +51,70 @@
                     </select>
 
                     <select id="typeFilter" class="ml-10">
-                        <option value="all">타입: 전체</option>
-                        <option value="scene">🖼️ 장면</option>
-                        <option value="video">🎬 영상</option>
-                        <option value="web">🌐 웹사이트</option>
-                        <option value="application">⚙️ 응용프로그램</option>
+                        <option value="all" data-i18n="typeAll">Type: All</option>
+                        <option value="scene" data-i18n="typeScene">🖼️ Scene</option>
+                        <option value="video" data-i18n="typeVideo">🎬 Video</option>
+                        <option value="web" data-i18n="typeWeb">🌐 Web</option>
+                        <option value="application" data-i18n="typeApp">⚙️ Application</option>
                     </select>
                 </div>
             </div>
         </header>
 
-        <!-- 메인 컨텐츠 -->
+        <!-- Main Content -->
         <main class="main-content">
-            <!-- 왼쪽: 파일 트리 -->
+            <!-- Left: File Tree -->
             <section class="file-section">
                 <div class="section-header">
-                    <h2>폴더 목록</h2>
+                    <h2 data-i18n="folderList">Folder List</h2>
                     <div class="section-actions">
-                        <button id="selectAllBtn" class="btn btn-sm">전체 선택</button>
-                        <button id="deselectAllBtn" class="btn btn-sm">선택 해제</button>
-                        <button id="deleteEmptyBtn" class="btn btn-sm btn-warning" style="display:none;">🗑️ 빈 폴더 모두 삭제</button>
-                        <button id="deleteBtn" class="btn btn-sm btn-danger">🗑️ 선택 삭제</button>
+                        <button id="selectAllBtn" class="btn btn-sm" data-i18n="selectAll">Select All</button>
+                        <button id="deselectAllBtn" class="btn btn-sm" data-i18n="deselectAll">Deselect All</button>
+                        <button id="deleteEmptyBtn" class="btn btn-sm btn-warning" style="display:none;" data-i18n="deleteEmpty">🗑️ Delete Empty</button>
+                        <button id="deleteBtn" class="btn btn-sm btn-danger" data-i18n="deleteSelected">🗑️ Delete Selected</button>
                     </div>
                 </div>
 
                 <div class="info-bar">
-                    <span id="statusText">준비</span>
+                    <span id="statusText" data-i18n="ready">Ready</span>
                     <span id="statsText"></span>
                 </div>
 
                 <div class="file-list" id="fileList">
                     <div class="empty-state">
-                        <p>📂 스캔을 시작하려면 '스캔' 버튼을 눌러주세요</p>
+                        <p data-i18n="previewPlaceholder">Select an item to preview</p>
                     </div>
                 </div>
             </section>
 
-            <!-- 오른쪽: 미리보기 -->
+            <!-- Right: Preview -->
             <aside class="preview-section">
                 <div class="section-header">
-                    <h2>미리보기</h2>
-                    <button id="openSteamBtn" class="btn btn-sm btn-primary" style="display:none;">
-                        🌐 Steam 페이지
+                    <h2 data-i18n="preview">Preview</h2>
+                    <button id="openSteamBtn" class="btn btn-sm btn-primary" style="display:none;" data-i18n="openSteam">
+                        🌐 Steam Page
                     </button>
                 </div>
 
                 <div class="preview-container" id="previewContainer">
                     <div class="preview-placeholder">
-                        <p>항목을 선택하면<br>미리보기가 표시됩니다</p>
+                        <p data-i18n="previewPlaceholder">Select an item to preview</p>
                     </div>
                 </div>
 
                 <div class="preview-info" id="previewInfo">
-                    <!-- 동적으로 채워짐 -->
+                    <!-- Dynamically populated -->
                 </div>
             </aside>
         </main>
 
-        <!-- 하단 상태바 -->
+        <!-- Footer Status Bar -->
         <footer class="footer">
             <div class="progress-container" id="progressContainer" style="display:none;">
                 <div class="progress-bar">
                     <div class="progress-fill" id="progressFill"></div>
                 </div>
-                <span id="progressText">스캔 중...</span>
+                <span id="progressText">Scanning...</span>
             </div>
             <div class="footer-info">
                 <span id="totalSizeText"></span>
