@@ -137,24 +137,40 @@ pub fn move_to_trash(_paths: Vec<String>) -> Result<DeleteResult, String> {
     Err("휴지통 기능은 현재 비활성화되어 있습니다".to_string())
 }
 
-/// 폴더 복사 (백업용)
-pub fn copy_folder(source: &str, destination: &str) -> Result<(), String> {
+/// 파일 또는 폴더 복사 (백업용)
+pub fn copy_item(source: &str, destination: &str) -> Result<(), String> {
     let src_path = Path::new(source);
     let dest_path = Path::new(destination);
 
-    // 소스 폴더 존재 확인
+    // 소스 존재 확인
     if !src_path.exists() {
-        return Err("소스 폴더가 존재하지 않습니다".to_string());
-    }
-
-    if !src_path.is_dir() {
-        return Err("소스가 폴더가 아닙니다".to_string());
+        return Err("소스가 존재하지 않습니다".to_string());
     }
 
     // 대상 폴더 생성
     fs::create_dir_all(dest_path)
         .map_err(|e| format!("대상 폴더 생성 실패: {}", e))?;
 
+    if src_path.is_file() {
+        // 파일 복사
+        let file_name = src_path
+            .file_name()
+            .ok_or("파일 이름을 가져올 수 없습니다")?;
+
+        let target_file = dest_path.join(file_name);
+
+        fs::copy(src_path, &target_file)
+            .map_err(|e| format!("파일 복사 실패: {}", e))?;
+
+        Ok(())
+    } else {
+        // 폴더 복사
+        copy_folder_recursive(src_path, dest_path)
+    }
+}
+
+/// 폴더 재귀 복사 (내부 헬퍼 함수)
+fn copy_folder_recursive(src_path: &Path, dest_path: &Path) -> Result<(), String> {
     // 폴더 이름 추출
     let folder_name = src_path
         .file_name()
@@ -199,6 +215,12 @@ pub fn copy_folder(source: &str, destination: &str) -> Result<(), String> {
     }
 
     Ok(())
+}
+
+/// Legacy function - redirects to copy_item
+#[allow(dead_code)]
+pub fn copy_folder(source: &str, destination: &str) -> Result<(), String> {
+    copy_item(source, destination)
 }
 
 #[cfg(test)]

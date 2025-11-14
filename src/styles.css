@@ -214,17 +214,52 @@ body {
 .file-item {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 12px 15px;
-    border-radius: 8px;
+    gap: 8px;
+    padding: 8px 15px;
+    border-radius: 6px;
     cursor: pointer;
-    transition: background 0.2s;
+    transition: all 0.2s ease;
     border: 2px solid transparent;
+    position: relative;
+    user-select: none;
 }
 
 .file-item:hover {
     background: #f8f9fa;
     border-color: #667eea;
+}
+
+.file-item.selected {
+    background: #e8ecff;
+    border-color: #667eea;
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
+}
+
+.file-item.selected:hover {
+    background: #dce3ff;
+}
+
+/* Expand icon */
+.expand-icon {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+    flex-shrink: 0;
+    text-align: center;
+}
+
+.expand-icon:hover {
+    transform: scale(1.2);
+}
+
+.expand-icon-placeholder {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
 }
 
 .item-checkbox {
@@ -437,4 +472,47 @@ body {
 
 .btn-warning:hover {
     background: #ffb300;
+}
+
+/* Preview actions styling */
+.preview-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 15px;
+    flex-wrap: wrap;
+}
+
+.preview-actions .btn {
+    flex: 1;
+    min-width: 100px;
+}
+
+/* Smooth fade in for tree items */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-5px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.file-item {
+    animation: fadeIn 0.2s ease;
+}
+
+/* Loading pulse animation */
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+.loading {
+    animation: pulse 1.5s ease-in-out infinite;
 }

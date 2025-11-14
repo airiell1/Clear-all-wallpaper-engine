@@ -5,6 +5,9 @@ let scanResults = [];
 let selectedItems = new Set();
 let projectInfoCache = new Map();
 let emptyFolders = []; // 빈 폴더 목록
+let expandedFolders = new Set(); // 펼쳐진 폴더들
+let selectedItem = null; // 현재 선택된 항목 (미리보기용)
+let clickTimer = null; // 클릭 타이머 (단일/더블 클릭 구분)
 
 // Tauri API (로드 후 사용)
 let invoke, open, dialog;
@@ -52,6 +55,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     await initializeSteamPath();
     setupEventListeners();
+    setupKeyboardShortcuts();
     console.log('✅ Setup complete');
 });
 
@@ -94,6 +98,13 @@ function setupEventListeners() {
         console.log('Path updated:', currentPath);
     });
 
+    // 경로 입력 후 Enter 키로 스캔
+    document.getElementById('pathInput').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            scanFolder();
+        }
+    });
+
     // 백업 폴더 설정
     document.getElementById('setBackupBtn').addEventListener('click', () => {
         backupPath = document.getElementById('backupPathInput').value;
@@ -109,6 +120,41 @@ function setupEventListeners() {
 
     // 필터 변경 시 재표시
     document.getElementById('typeFilter').addEventListener('change', displayResults);
+}
+
+// 키보드 단축키 설정
+function setupKeyboardShortcuts() {
+    document.addEventListener('keydown', (e) => {
+        // Delete 키: 선택한 항목 삭제
+        if (e.key === 'Delete' && selectedItems.size > 0) {
+            if (!e.target.matches('input, textarea')) {
+                deleteSelected();
+            }
+        }
+
+        // Escape 키: 선택 해제
+        if (e.key === 'Escape') {
+            deselectAll();
+            selectedItem = null;
+            displayResults();
+        }
+
+        // Ctrl+A: 전체 선택
+        if (e.ctrlKey && e.key === 'a') {
+            if (!e.target.matches('input, textarea')) {
+                e.preventDefault();
+                selectAll();
+            }
+        }
+
+        // F5 또는 Ctrl+R: 재스캔
+        if (e.key === 'F5' || (e.ctrlKey && e.key === 'r')) {
+            if (currentPath && !e.target.matches('input, textarea')) {
+                e.preventDefault();
+                scanFolder();
+            }
+        }
+    });
 }
 
 // 폴더 선택
@@ -143,14 +189,21 @@ async function scanFolder() {
     const minSize = parseInt(document.getElementById('minSize').value);
 
     if (!currentPath) {
-        alert('경로를 선택해주세요');
+        alert('⚠️ 경로를 선택해주세요\n\n상단의 "찾아보기" 버튼을 사용하거나\n직접 경로를 입력해주세요.');
         return;
     }
 
+    // 초기화
+    expandedFolders.clear();
+    selectedItem = null;
+
     showProgress('스캔 중...');
     showStatus('🔍 스캔 시작...');
+    console.log('Scanning folder:', currentPath);
 
     try {
+        const startTime = performance.now();
+
         const results = await invoke('scan_folder', {
             path: currentPath,
             depth: depth,
@@ -158,19 +211,27 @@ async function scanFolder() {
             min_size: minSize
         });
 
+        const scanTime = ((performance.now() - startTime) / 1000).toFixed(2);
+
         scanResults = results;
         selectedItems.clear();
 
+        console.log(`Scan completed: ${results.length} items in ${scanTime}s`);
+
         // Project info 병렬 로드
+        showStatus('📋 프로젝트 정보 로딩 중...');
         await loadProjectInfos(results);
 
         displayResults();
         hideProgress();
-        showStatus(`✅ 스캔 완료: ${results.length}개 항목`);
+
+        const totalSize = results.reduce((sum, item) => sum + item.size, 0);
+        showStatus(`✅ 스캔 완료: ${results.length}개 항목 (${formatSize(totalSize)}, ${scanTime}초)`);
     } catch (error) {
         hideProgress();
-        showStatus('❌ 스캔 실패: ' + error);
-        alert('스캔 실패: ' + error);
+        console.error('Scan error:', error);
+        showStatus('❌ 스캔 실패');
+        alert(`❌ 스캔 실패\n\n오류: ${error}\n\n경로를 확인하고 다시 시도해주세요.`);
     }
 }
 
@@ -192,23 +253,16 @@ async function loadProjectInfos(results) {
     await Promise.all(promises);
 }
 
-// 결과 표시
+// 결과 표시 (트리 뷰)
 function displayResults() {
     const fileList = document.getElementById('fileList');
     const typeFilter = document.getElementById('typeFilter').value;
 
-    // 필터링: 최상위 폴더만 표시 (Workshop ID 폴더들)
-    let filtered = scanResults.filter(item => {
-        // 파일 제외
-        if (item.is_file) return false;
-        // 빈 폴더 모드가 아닌 경우, level 1만 표시 (최상위 Workshop 폴더들)
-        if (!item.is_empty && item.level !== 1) return false;
-        return true;
-    });
-
     // 타입 필터 적용
+    let filtered = scanResults;
     if (typeFilter !== 'all') {
-        filtered = filtered.filter(item => {
+        filtered = scanResults.filter(item => {
+            if (item.is_file) return false;
             const info = projectInfoCache.get(item.path);
             return info && info.wallpaper_type === typeFilter;
         });
@@ -219,11 +273,96 @@ function displayResults() {
         return;
     }
 
-    // 크기순 정렬 (큰 것부터)
-    filtered.sort((a, b) => b.size - a.size);
+    // 트리 구조 렌더링
+    const tree = buildTree(filtered);
+    fileList.innerHTML = tree;
 
-    // 렌더링
-    fileList.innerHTML = filtered.map(item => createFileItem(item)).join('');
+    // 이벤트 리스너 설정
+    attachTreeEventListeners();
+
+    updateStats();
+}
+
+// 트리 구조 생성
+function buildTree(items) {
+    // 최상위 항목 찾기 (level 1)
+    const topLevel = items.filter(item => item.level === 1);
+
+    // 크기순 정렬
+    topLevel.sort((a, b) => b.size - a.size);
+
+    return topLevel.map(item => renderTreeItem(item, items)).join('');
+}
+
+// 트리 항목 렌더링
+function renderTreeItem(item, allItems, depth = 0) {
+    const hasChildren = allItems.some(child => child.parent === item.path);
+    const isExpanded = expandedFolders.has(item.path);
+    const isSelected = selectedItem === item.path;
+
+    let html = createFileItem(item, hasChildren, isExpanded, isSelected, depth);
+
+    // 하위 항목 렌더링 (펼쳐져 있을 때만)
+    if (hasChildren && isExpanded) {
+        const children = allItems.filter(child => child.parent === item.path);
+        children.sort((a, b) => {
+            // 폴더 먼저, 그 다음 파일
+            if (a.is_file !== b.is_file) {
+                return a.is_file ? 1 : -1;
+            }
+            return b.size - a.size;
+        });
+
+        children.forEach(child => {
+            html += renderTreeItem(child, allItems, depth + 1);
+        });
+    }
+
+    return html;
+}
+
+// 파일 아이템 HTML 생성
+function createFileItem(item, hasChildren = false, isExpanded = false, isSelected = false, depth = 0) {
+    const info = projectInfoCache.get(item.path);
+    const icon = item.is_file ? '📄' : '📁';
+    const typeIcon = info ? getTypeIcon(info.wallpaper_type) : '';
+    const title = info && info.title ? ` - ${info.title}` : '';
+    const sizeFormatted = formatSize(item.size);
+
+    // 클래스 설정
+    const emptyClass = item.is_empty ? ' empty-folder' : '';
+    const selectedClass = isSelected ? ' selected' : '';
+    const expandableClass = hasChildren ? ' expandable' : '';
+
+    // 배지
+    const emptyBadge = item.is_empty ? ' <span class="empty-badge">📭 빈 폴더</span>' : '';
+
+    // 확장 아이콘 (하위 항목이 있을 경우만)
+    const expandIcon = hasChildren ?
+        `<span class="expand-icon">${isExpanded ? '▼' : '▶'}</span>` :
+        '<span class="expand-icon-placeholder"></span>';
+
+    // 들여쓰기
+    const indent = depth * 20;
+
+    return `
+        <div class="file-item${emptyClass}${selectedClass}${expandableClass}"
+             data-path="${item.path}"
+             data-is-file="${item.is_file}"
+             data-has-children="${hasChildren}"
+             style="padding-left: ${indent + 15}px;">
+            ${expandIcon}
+            <input type="checkbox" class="item-checkbox" data-path="${item.path}">
+            <span class="item-icon">${icon}${typeIcon}</span>
+            <span class="item-name">${item.name}${title}${emptyBadge}</span>
+            <span class="item-size">${sizeFormatted}</span>
+        </div>
+    `;
+}
+
+// 트리 이벤트 리스너 연결
+function attachTreeEventListeners() {
+    const fileList = document.getElementById('fileList');
 
     // 체크박스 이벤트
     fileList.querySelectorAll('.item-checkbox').forEach(checkbox => {
@@ -233,16 +372,55 @@ function displayResults() {
     // 아이템 클릭 이벤트
     fileList.querySelectorAll('.file-item').forEach(elem => {
         elem.addEventListener('click', (e) => {
-            if (e.target.type !== 'checkbox') {
-                const path = elem.dataset.path;
-                showPreview(path);
+            // 체크박스 클릭은 무시
+            if (e.target.classList.contains('item-checkbox')) return;
+
+            const path = elem.dataset.path;
+            const hasChildren = elem.dataset.hasChildren === 'true';
+            const isFile = elem.dataset.isFile === 'true';
+
+            // 확장 아이콘 클릭 시 토글
+            if (e.target.classList.contains('expand-icon')) {
+                if (hasChildren) {
+                    toggleFolder(path);
+                }
+                return;
             }
+
+            // 단일 클릭 처리 (더블클릭과 구분)
+            if (clickTimer) {
+                clearTimeout(clickTimer);
+                clickTimer = null;
+            }
+
+            clickTimer = setTimeout(() => {
+                // 단일 클릭: 선택 및 미리보기
+                if (selectedItem === path && hasChildren) {
+                    // 이미 선택된 항목을 다시 클릭 -> 토글
+                    toggleFolder(path);
+                } else {
+                    // 새 항목 선택 -> 미리보기 표시
+                    selectItem(path);
+                }
+                clickTimer = null;
+            }, 250);
         });
 
-        // 더블클릭으로 폴더 열기
+        // 더블클릭 이벤트
         elem.addEventListener('dblclick', async (e) => {
-            if (e.target.type !== 'checkbox') {
-                const path = elem.dataset.path;
+            if (e.target.classList.contains('item-checkbox')) return;
+
+            // 더블클릭 타이머 취소
+            if (clickTimer) {
+                clearTimeout(clickTimer);
+                clickTimer = null;
+            }
+
+            const path = elem.dataset.path;
+            const isFile = elem.dataset.isFile === 'true';
+
+            // 더블클릭: 파일 탐색기로 열기
+            if (!isFile) {
                 try {
                     await open(path);
                 } catch (error) {
@@ -252,30 +430,23 @@ function displayResults() {
             }
         });
     });
-
-    updateStats();
 }
 
-// 파일 아이템 HTML 생성
-function createFileItem(item) {
-    const info = projectInfoCache.get(item.path);
-    const icon = item.is_file ? '📄' : '📁';
-    const typeIcon = info ? getTypeIcon(info.wallpaper_type) : '';
-    const title = info && info.title ? ` - ${info.title}` : '';
-    const sizeFormatted = formatSize(item.size);
+// 폴더 펼치기/접기
+function toggleFolder(path) {
+    if (expandedFolders.has(path)) {
+        expandedFolders.delete(path);
+    } else {
+        expandedFolders.add(path);
+    }
+    displayResults();
+}
 
-    // 빈 폴더인 경우 특별한 클래스 추가
-    const emptyClass = item.is_empty ? ' empty-folder' : '';
-    const emptyBadge = item.is_empty ? ' <span class="empty-badge">📭 빈 폴더</span>' : '';
-
-    return `
-        <div class="file-item${emptyClass}" data-path="${item.path}">
-            <input type="checkbox" class="item-checkbox" data-path="${item.path}">
-            <span class="item-icon">${icon}${typeIcon}</span>
-            <span class="item-name">${item.name}${title}${emptyBadge}</span>
-            <span class="item-size">${sizeFormatted}</span>
-        </div>
-    `;
+// 항목 선택
+function selectItem(path) {
+    selectedItem = path;
+    showPreview(path);
+    displayResults();
 }
 
 // 타입 아이콘
@@ -321,40 +492,56 @@ function deselectAll() {
 // 선택 항목 삭제
 async function deleteSelected() {
     if (selectedItems.size === 0) {
-        alert('삭제할 항목을 선택해주세요');
+        alert('⚠️ 삭제할 항목을 선택해주세요\n\n체크박스를 선택한 후 삭제 버튼을 눌러주세요.');
         return;
     }
 
     const paths = Array.from(selectedItems);
 
-    // 크기 계산
-    const totalSize = await invoke('calculate_total_size', { paths });
-    const sizeFormatted = formatSize(totalSize);
-
-    if (!confirm(`${selectedItems.size}개 항목 (${sizeFormatted})을 삭제하시겠습니까?\n\n⚠️ 이 작업은 되돌릴 수 없습니다!`)) {
-        return;
-    }
-
-    showProgress('삭제 중...');
-    showStatus('🗑️ 삭제 중...');
-
     try {
+        showProgress('크기 계산 중...');
+
+        // 크기 계산
+        const totalSize = await invoke('calculate_total_size', { paths });
+        const sizeFormatted = formatSize(totalSize);
+
+        hideProgress();
+
+        // 상세 정보와 함께 확인
+        const itemList = paths.map(p => {
+            const item = scanResults.find(r => r.path === p);
+            return item ? `  • ${item.name} (${formatSize(item.size)})` : `  • ${p}`;
+        }).join('\n');
+
+        if (!confirm(`🗑️ 다음 ${selectedItems.size}개 항목을 삭제하시겠습니까?\n\n${itemList}\n\n전체 크기: ${sizeFormatted}\n\n⚠️ 이 작업은 되돌릴 수 없습니다!`)) {
+            return;
+        }
+
+        showProgress(`삭제 중... (0/${paths.length})`);
+        showStatus('🗑️ 삭제 중...');
+
+        const startTime = performance.now();
         const result = await invoke('delete_items', { paths });
+        const deleteTime = ((performance.now() - startTime) / 1000).toFixed(2);
 
         hideProgress();
 
         if (result.failed > 0) {
-            alert(`삭제 완료\n성공: ${result.success}개\n실패: ${result.failed}개\n\n${result.failed_items.map(f => f.path + ': ' + f.error).join('\n')}`);
+            const errorDetails = result.failed_items.map(f => `  • ${f.path}\n    ${f.error}`).join('\n\n');
+            alert(`⚠️ 삭제 부분 완료\n\n✅ 성공: ${result.success}개\n❌ 실패: ${result.failed}개\n\n실패한 항목:\n${errorDetails}`);
+            showStatus(`⚠️ 삭제 부분 완료: ${result.success}개 성공, ${result.failed}개 실패`);
         } else {
-            showStatus(`✅ ${result.success}개 항목 삭제 완료`);
+            showStatus(`✅ ${result.success}개 항목 삭제 완료 (${deleteTime}초)`);
         }
 
         // 재스캔
+        console.log('Rescanning after deletion...');
         await scanFolder();
     } catch (error) {
         hideProgress();
-        showStatus('❌ 삭제 실패: ' + error);
-        alert('삭제 실패: ' + error);
+        console.error('Delete error:', error);
+        showStatus('❌ 삭제 실패');
+        alert(`❌ 삭제 실패\n\n오류: ${error}`);
     }
 }
 
@@ -401,6 +588,7 @@ async function showPreview(path) {
 
         // Escape path for use in onclick handlers
         const escapedPath = path.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+        const itemType = item.is_file ? '파일' : '폴더';
 
         previewInfo.innerHTML = `
             <h3>${info.title}</h3>
@@ -409,9 +597,10 @@ async function showPreview(path) {
             <p><strong>설명:</strong> ${info.description || '없음'}</p>
             <p><strong>태그:</strong> ${info.tags.join(', ') || '없음'}</p>
             <p><strong>Workshop ID:</strong> ${info.workshop_id || '없음'}</p>
-            <div class="preview-actions" style="margin-top: 15px;">
+            <div class="preview-actions" style="margin-top: 15px; display: flex; gap: 8px; flex-wrap: wrap;">
                 <button class="btn btn-sm btn-primary" onclick="openFolder('${escapedPath}')">📁 폴더 열기</button>
-                <button class="btn btn-sm btn-success" onclick="backupFolder('${escapedPath}')">💾 백업</button>
+                <button class="btn btn-sm btn-success" onclick="backupItem('${escapedPath}')">💾 백업</button>
+                <button class="btn btn-sm btn-danger" onclick="deleteItem('${escapedPath}')">🗑️ 삭제</button>
             </div>
         `;
 
@@ -446,8 +635,8 @@ async function openFolder(path) {
     }
 }
 
-// 폴더 백업
-async function backupFolder(sourcePath) {
+// 항목 백업 (파일 또는 폴더)
+async function backupItem(sourcePath) {
     if (!backupPath) {
         alert('백업 폴더를 먼저 설정해주세요!');
         return;
@@ -457,19 +646,62 @@ async function backupFolder(sourcePath) {
         showProgress('백업 중...');
         showStatus('💾 백업 중...');
 
-        await invoke('copy_folder_cmd', {
+        await invoke('copy_item_cmd', {
             source: sourcePath,
             destination: backupPath
         });
 
         hideProgress();
         showStatus('✅ 백업 완료!');
-        alert('백업이 완료되었습니다!\n\n' + backupPath);
+        alert('백업이 완료되었습니다!\n\n대상: ' + backupPath);
     } catch (error) {
         hideProgress();
-        console.error('Failed to backup folder:', error);
+        console.error('Failed to backup item:', error);
         showStatus('❌ 백업 실패: ' + error);
         alert('백업 실패: ' + error);
+    }
+}
+
+// 단일 항목 삭제
+async function deleteItem(itemPath) {
+    const item = scanResults.find(r => r.path === itemPath);
+    if (!item) {
+        alert('항목을 찾을 수 없습니다.');
+        return;
+    }
+
+    const itemType = item.is_file ? '파일' : '폴더';
+    const sizeFormatted = formatSize(item.size);
+
+    if (!confirm(`${itemType} "${item.name}"을(를) 삭제하시겠습니까?\n\n크기: ${sizeFormatted}\n\n⚠️ 이 작업은 되돌릴 수 없습니다!`)) {
+        return;
+    }
+
+    try {
+        showProgress('삭제 중...');
+        showStatus('🗑️ 삭제 중...');
+
+        const result = await invoke('delete_items', { paths: [itemPath] });
+
+        hideProgress();
+
+        if (result.failed > 0) {
+            alert(`삭제 실패!\n\n에러: ${result.failed_items[0].error}`);
+            showStatus('❌ 삭제 실패');
+        } else {
+            showStatus('✅ 삭제 완료');
+            // 선택 해제 및 미리보기 클리어
+            selectedItem = null;
+            document.getElementById('previewContainer').innerHTML = '<div class="preview-placeholder"><p>항목이 삭제되었습니다</p></div>';
+            document.getElementById('previewInfo').innerHTML = '';
+            // 재스캔
+            await scanFolder();
+        }
+    } catch (error) {
+        hideProgress();
+        console.error('Failed to delete item:', error);
+        showStatus('❌ 삭제 실패: ' + error);
+        alert('삭제 실패: ' + error);
     }
 }
 
@@ -521,7 +753,7 @@ function hideProgress() {
 // 빈 폴더 찾기
 async function findEmptyFolders() {
     if (!currentPath) {
-        alert('경로를 선택해주세요');
+        alert('⚠️ 경로를 선택해주세요');
         return;
     }
 
@@ -529,18 +761,23 @@ async function findEmptyFolders() {
 
     showProgress('빈 폴더 검색 중...');
     showStatus('📭 빈 폴더 검색 중...');
+    console.log('Finding empty folders in:', currentPath);
 
     try {
+        const startTime = performance.now();
+
         emptyFolders = await invoke('find_empty', {
             path: currentPath,
             depth: depth
         });
 
+        const searchTime = ((performance.now() - startTime) / 1000).toFixed(2);
+
         hideProgress();
 
         if (emptyFolders.length === 0) {
             showStatus('✅ 빈 폴더가 없습니다!');
-            alert('빈 폴더가 없습니다!');
+            alert('✅ 빈 폴더를 찾지 못했습니다!\n\n모든 폴더에 파일이 있습니다.');
             document.getElementById('deleteEmptyBtn').style.display = 'none';
             return;
         }
@@ -556,7 +793,7 @@ async function findEmptyFolders() {
                 size: 0,
                 is_file: false,
                 level: level,
-                parent: null,
+                parent: path.substring(0, path.lastIndexOf('\\')),
                 is_empty: true // 빈 폴더 표시
             };
         });
@@ -564,23 +801,26 @@ async function findEmptyFolders() {
         // 최상위 빈 폴더만 필터링 (level 1만)
         const topLevelEmpty = emptyFoldersWithLevel.filter(f => f.level === 1);
 
-        showStatus(`📭 최상위 빈 폴더 ${topLevelEmpty.length}개 발견! (전체 ${emptyFolders.length}개)`);
+        console.log(`Found ${emptyFolders.length} empty folders (${topLevelEmpty.length} top-level) in ${searchTime}s`);
+        showStatus(`📭 최상위 빈 폴더 ${topLevelEmpty.length}개 발견! (전체 ${emptyFolders.length}개, ${searchTime}초)`);
 
         // 빈 폴더를 scanResults에 추가하여 표시
-        scanResults = topLevelEmpty;
-
+        scanResults = emptyFoldersWithLevel;
+        expandedFolders.clear();
+        selectedItem = null;
         selectedItems.clear();
         displayResults();
 
         // "빈 폴더 모두 삭제" 버튼 표시
         document.getElementById('deleteEmptyBtn').style.display = 'inline-block';
 
-        alert(`빈 폴더 ${emptyFolders.length}개를 찾았습니다.\n목록을 확인하고 삭제할 수 있습니다.`);
+        alert(`📭 빈 폴더 발견!\n\n전체: ${emptyFolders.length}개\n최상위: ${topLevelEmpty.length}개\n\n목록을 확인하고 삭제할 수 있습니다.`);
 
     } catch (error) {
         hideProgress();
-        showStatus('❌ 빈 폴더 검색 실패: ' + error);
-        alert('빈 폴더 검색 실패: ' + error);
+        console.error('Find empty error:', error);
+        showStatus('❌ 빈 폴더 검색 실패');
+        alert(`❌ 빈 폴더 검색 실패\n\n오류: ${error}`);
     }
 }
 
