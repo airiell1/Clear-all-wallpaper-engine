@@ -1,5 +1,6 @@
 // 전역 상태
 let currentPath = '';
+let backupPath = ''; // 백업 폴더 경로
 let scanResults = [];
 let selectedItems = new Set();
 let projectInfoCache = new Map();
@@ -82,6 +83,19 @@ function setupEventListeners() {
     document.getElementById('pathInput').addEventListener('input', (e) => {
         currentPath = e.target.value;
         console.log('Path updated:', currentPath);
+    });
+
+    // 백업 폴더 설정
+    document.getElementById('setBackupBtn').addEventListener('click', () => {
+        backupPath = document.getElementById('backupPathInput').value;
+        if (backupPath) {
+            showStatus('✅ 백업 폴더 설정됨: ' + backupPath);
+            console.log('Backup path set:', backupPath);
+        }
+    });
+
+    document.getElementById('backupPathInput').addEventListener('input', (e) => {
+        backupPath = e.target.value;
     });
 
     // 필터 변경 시 재표시
@@ -353,7 +367,7 @@ async function showPreview(path) {
             <p><strong>Workshop ID:</strong> ${info.workshop_id || '없음'}</p>
             <div class="preview-actions" style="margin-top: 15px;">
                 <button class="btn btn-sm btn-primary" onclick="openFolder('${path}')">📁 폴더 열기</button>
-                <button class="btn btn-sm" onclick="copyPath('${path}')">📋 경로 복사</button>
+                <button class="btn btn-sm btn-success" onclick="backupFolder('${path}')">💾 백업</button>
             </div>
         `;
 
@@ -388,14 +402,30 @@ async function openFolder(path) {
     }
 }
 
-// 경로 복사
-async function copyPath(path) {
+// 폴더 백업
+async function backupFolder(sourcePath) {
+    if (!backupPath) {
+        alert('백업 폴더를 먼저 설정해주세요!');
+        return;
+    }
+
     try {
-        await navigator.clipboard.writeText(path);
-        showStatus('✅ 경로 복사됨: ' + path);
+        showProgress('백업 중...');
+        showStatus('💾 백업 중...');
+
+        await invoke('copy_folder', {
+            source: sourcePath,
+            destination: backupPath
+        });
+
+        hideProgress();
+        showStatus('✅ 백업 완료!');
+        alert('백업이 완료되었습니다!\n\n' + backupPath);
     } catch (error) {
-        console.error('Failed to copy path:', error);
-        alert('경로 복사 실패: ' + error);
+        hideProgress();
+        console.error('Failed to backup folder:', error);
+        showStatus('❌ 백업 실패: ' + error);
+        alert('백업 실패: ' + error);
     }
 }
 
