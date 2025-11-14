@@ -10,25 +10,35 @@ let emptyFolders = []; // 빈 폴더 목록
 
 // 초기화
 document.addEventListener('DOMContentLoaded', async () => {
+    console.log('🚀 App initialized');
+
     // Initialize i18n first
     i18n.initLanguage();
+    console.log('🌐 i18n initialized');
 
     await initializeSteamPath();
     setupEventListeners();
+    console.log('✅ Setup complete');
 });
 
 // Steam 경로 자동 감지
 async function initializeSteamPath() {
+    console.log('🔍 Detecting Steam path...');
     try {
         const steamInfo = await invoke('find_steam');
+        console.log('Steam info:', steamInfo);
+
         if (steamInfo.found) {
             currentPath = steamInfo.workshop_path;
             document.getElementById('pathInput').value = currentPath;
             showStatus(i18n.t('steamDetected'));
+            console.log('✅ Steam detected:', currentPath);
         } else {
             showStatus(i18n.t('steamNotFound'));
+            console.log('⚠️ Steam not found');
         }
     } catch (error) {
+        console.error('❌ Steam detection error:', error);
         showStatus(i18n.t('steamDetectFailed') + ': ' + error);
     }
 }
@@ -42,6 +52,12 @@ function setupEventListeners() {
     document.getElementById('openSteamBtn').addEventListener('click', openSteamPage);
     document.getElementById('findEmptyBtn').addEventListener('click', findEmptyFolders);
     document.getElementById('deleteEmptyBtn').addEventListener('click', deleteAllEmpty);
+
+    // 경로 입력 시 currentPath 업데이트
+    document.getElementById('pathInput').addEventListener('input', (e) => {
+        currentPath = e.target.value;
+        console.log('Path updated:', currentPath);
+    });
 
     // 필터 변경 시 재표시
     document.getElementById('typeFilter').addEventListener('change', displayResults);
