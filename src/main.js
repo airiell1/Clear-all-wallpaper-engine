@@ -120,8 +120,8 @@ async function scanFolder() {
         const results = await invoke('scan_folder', {
             path: currentPath,
             depth: depth,
-            show_files: showFiles,
-            min_size: minSize
+            showFiles: showFiles,
+            minSize: minSize
         });
 
         scanResults = results;
@@ -147,7 +147,7 @@ async function loadProjectInfos(results) {
     const promises = folders.map(async (folder) => {
         if (!projectInfoCache.has(folder.path)) {
             try {
-                const info = await invoke('get_project_info', { folder_path: folder.path });
+                const info = await invoke('get_project_info', { folderPath: folder.path });
                 projectInfoCache.set(folder.path, info);
             } catch {
                 projectInfoCache.set(folder.path, null);
@@ -356,7 +356,7 @@ async function showPreview(path) {
 
     // 정보 표시
     if (info) {
-        const typeKorean = await invoke('get_type_korean', { wallpaper_type: info.wallpaper_type });
+        const typeKorean = await invoke('get_type_korean', { wallpaperType: info.wallpaper_type });
 
         previewInfo.innerHTML = `
             <h3>${info.title}</h3>
@@ -375,7 +375,7 @@ async function showPreview(path) {
             const openBtn = document.getElementById('openSteamBtn');
             openBtn.style.display = 'block';
             openBtn.onclick = async () => {
-                const url = await invoke('get_steam_url', { workshop_id: info.workshop_id });
+                const url = await invoke('get_steam_url', { workshopId: info.workshop_id });
                 await open(url);
             };
         }
