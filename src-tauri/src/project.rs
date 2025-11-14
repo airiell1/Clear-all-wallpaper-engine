@@ -23,7 +23,7 @@ pub enum PreviewType {
     None,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum WallpaperType {
     Scene,       // 장면 (기본)
     Video,       // 영상
@@ -75,7 +75,7 @@ pub fn read_project_json(folder_path: &str) -> Result<ProjectInfo, String> {
     let content = fs::read_to_string(&project_path)
         .map_err(|e| format!("파일 읽기 실패: {}", e))?;
 
-    let mut project: serde_json::Value = serde_json::from_str(&content)
+    let project: serde_json::Value = serde_json::from_str(&content)
         .map_err(|e| format!("JSON 파싱 실패: {}", e))?;
 
     // 필드 추출
@@ -96,9 +96,9 @@ pub fn read_project_json(folder_path: &str) -> Result<ProjectInfo, String> {
 
     let workshop_id = project["workshopid"]
         .as_str()
-        .or_else(|| project["workshopid"].as_u64().map(|n| n.to_string()).as_deref())
-        .unwrap_or("")
-        .to_string();
+        .map(|s| s.to_string())
+        .or_else(|| project["workshopid"].as_u64().map(|n| n.to_string()))
+        .unwrap_or_else(|| String::new());
 
     let tags = project["tags"]
         .as_array()

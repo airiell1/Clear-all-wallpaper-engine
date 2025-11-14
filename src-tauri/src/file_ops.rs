@@ -130,43 +130,10 @@ pub fn get_total_size(paths: &[String]) -> u64 {
 }
 
 /// 휴지통으로 이동 (선택적)
-#[cfg(feature = "trash")]
-pub fn move_to_trash(paths: Vec<String>) -> Result<DeleteResult, String> {
-    use trash;
-
-    let mut success = 0;
-    let mut failed = 0;
-    let mut failed_items = Vec::new();
-
-    for path_str in paths {
-        let path = Path::new(&path_str);
-
-        if !path.exists() {
-            failed += 1;
-            failed_items.push(FailedItem {
-                path: path_str.clone(),
-                error: "경로가 존재하지 않습니다".to_string(),
-            });
-            continue;
-        }
-
-        match trash::delete(path) {
-            Ok(_) => success += 1,
-            Err(e) => {
-                failed += 1;
-                failed_items.push(FailedItem {
-                    path: path_str,
-                    error: format!("휴지통 이동 실패: {}", e),
-                });
-            }
-        }
-    }
-
-    Ok(DeleteResult {
-        success,
-        failed,
-        failed_items,
-    })
+/// Note: This feature requires the 'trash' crate. Currently disabled.
+#[allow(dead_code)]
+pub fn move_to_trash(_paths: Vec<String>) -> Result<DeleteResult, String> {
+    Err("휴지통 기능은 현재 비활성화되어 있습니다".to_string())
 }
 
 #[cfg(test)]
