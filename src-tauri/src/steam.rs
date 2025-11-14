@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SteamInfo {
@@ -58,7 +58,6 @@ fn find_steam_path_windows() -> Result<SteamInfo, String> {
     find_steam_path_fallback()
 }
 
-#[cfg(not(windows))]
 fn find_steam_path_fallback() -> Result<SteamInfo, String> {
     let default_paths = vec![
         r"C:\Program Files (x86)\Steam",
