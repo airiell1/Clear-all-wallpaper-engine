@@ -28,10 +28,47 @@ body {
     border-radius: 0 0 15px 15px;
 }
 
+.header-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
 .header h1 {
     font-size: 24px;
-    margin-bottom: 15px;
+    margin: 0;
     color: #667eea;
+}
+
+/* Language Switcher */
+.lang-switcher {
+    display: flex;
+    gap: 5px;
+    background: #f0f0f0;
+    padding: 4px;
+    border-radius: 8px;
+}
+
+.lang-btn {
+    padding: 6px 14px;
+    border: none;
+    background: transparent;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    color: #666;
+}
+
+.lang-btn:hover {
+    background: #e0e0e0;
+}
+
+.lang-btn.active {
+    background: #667eea;
+    color: white;
 }
 
 .controls {

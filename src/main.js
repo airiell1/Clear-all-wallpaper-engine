@@ -10,6 +10,9 @@ let emptyFolders = []; // 빈 폴더 목록
 
 // 초기화
 document.addEventListener('DOMContentLoaded', async () => {
+    // Initialize i18n first
+    i18n.initLanguage();
+
     await initializeSteamPath();
     setupEventListeners();
 });
@@ -21,12 +24,12 @@ async function initializeSteamPath() {
         if (steamInfo.found) {
             currentPath = steamInfo.workshop_path;
             document.getElementById('pathInput').value = currentPath;
-            showStatus('✅ Steam 경로 자동 감지 완료');
+            showStatus(i18n.t('steamDetected'));
         } else {
-            showStatus('⚠️ Steam 경로를 찾을 수 없습니다. 수동으로 선택해주세요.');
+            showStatus(i18n.t('steamNotFound'));
         }
     } catch (error) {
-        showStatus('❌ Steam 경로 감지 실패: ' + error);
+        showStatus(i18n.t('steamDetectFailed') + ': ' + error);
     }
 }
 
