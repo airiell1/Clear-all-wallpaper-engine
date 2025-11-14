@@ -1,0 +1,25 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="512" height="512" fill="#4A90E2" rx="64"/>
+
+  <!-- Wallpaper icon representation -->
+  <g transform="translate(128, 128)">
+    <!-- Image frame -->
+    <rect x="0" y="0" width="256" height="192" fill="#FFFFFF" rx="8"/>
+    <rect x="8" y="8" width="240" height="176" fill="#E8F4F8" rx="4"/>
+
+    <!-- Mountain landscape -->
+    <path d="M 8 184 L 80 100 L 140 140 L 200 80 L 248 140 L 248 184 Z" fill="#B0D4E8"/>
+
+    <!-- Sun -->
+    <circle cx="200" cy="50" r="24" fill="#FFD700"/>
+
+    <!-- Clean/trash icon -->
+    <g transform="translate(200, 200)">
+      <rect x="-20" y="-40" width="40" height="50" fill="#FFFFFF" stroke="#4A90E2" stroke-width="3" rx="4"/>
+      <line x1="-15" y1="-20" x2="15" y2="-20" stroke="#4A90E2" stroke-width="3"/>
+      <line x1="-15" y1="0" x2="15" y2="0" stroke="#4A90E2" stroke-width="3"/>
+      <line x1="-15" y1="20" x2="15" y2="20" stroke="#4A90E2" stroke-width="3"/>
+    </g>
+  </g>
+</svg>
