@@ -1,0 +1,46 @@
+{
+  "productName": "Wallpaper Engine Cleaner",
+  "identifier": "com.airiell1.wallpaper-cleaner",
+  "version": "0.1.0",
+  "build": {
+    "beforeDevCommand": "",
+    "devUrl": "../src",
+    "beforeBuildCommand": "",
+    "frontendDist": "../src"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "Wallpaper Engine Cleaner",
+        "width": 1400,
+        "height": 800,
+        "resizable": true,
+        "fullscreen": false,
+        "transparent": false,
+        "decorations": true
+      }
+    ],
+    "security": {
+      "csp": null,
+      "assetProtocol": {
+        "enable": true,
+        "scope": ["**"]
+      }
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/icon.png"
+    ],
+    "windows": {
+      "wix": {
+        "language": "ko-KR"
+      },
+      "nsis": {
+        "languages": ["Korean"]
+      }
+    }
+  }
+}

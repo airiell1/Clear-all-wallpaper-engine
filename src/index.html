@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wallpaper Engine Cleaner</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <!-- 상단 컨트롤 -->
+        <header class="header">
+            <h1>🗂️ Wallpaper Engine Cleaner</h1>
+            <div class="controls">
+                <div class="path-group">
+                    <input type="text" id="pathInput" placeholder="Steam 경로 자동 감지 중..." readonly>
+                    <button id="browseBtn" class="btn btn-primary">📁 찾아보기</button>
+                    <button id="scanBtn" class="btn btn-success">🔍 스캔</button>
+                    <button id="findEmptyBtn" class="btn btn-warning">📭 빈 폴더 찾기</button>
+                </div>
+
+                <div class="options">
+                    <label>
+                        <input type="radio" name="depth" value="1" checked> 1단계
+                    </label>
+                    <label>
+                        <input type="radio" name="depth" value="2"> 2단계
+                    </label>
+                    <label>
+                        <input type="radio" name="depth" value="999"> 전체
+                    </label>
+
+                    <label class="ml-20">
+                        <input type="checkbox" id="showFiles"> 파일도 표시
+                    </label>
+
+                    <select id="minSize" class="ml-20">
+                        <option value="0">최소 크기: 전체</option>
+                        <option value="104857600">100 MB</option>
+                        <option value="524288000">500 MB</option>
+                        <option value="1073741824">1 GB</option>
+                        <option value="2147483648">2 GB</option>
+                    </select>
+
+                    <select id="typeFilter" class="ml-10">
+                        <option value="all">타입: 전체</option>
+                        <option value="scene">🖼️ 장면</option>
+                        <option value="video">🎬 영상</option>
+                        <option value="web">🌐 웹사이트</option>
+                        <option value="application">⚙️ 응용프로그램</option>
+                    </select>
+                </div>
+            </div>
+        </header>
+
+        <!-- 메인 컨텐츠 -->
+        <main class="main-content">
+            <!-- 왼쪽: 파일 트리 -->
+            <section class="file-section">
+                <div class="section-header">
+                    <h2>폴더 목록</h2>
+                    <div class="section-actions">
+                        <button id="selectAllBtn" class="btn btn-sm">전체 선택</button>
+                        <button id="deselectAllBtn" class="btn btn-sm">선택 해제</button>
+                        <button id="deleteEmptyBtn" class="btn btn-sm btn-warning" style="display:none;">🗑️ 빈 폴더 모두 삭제</button>
+                        <button id="deleteBtn" class="btn btn-sm btn-danger">🗑️ 선택 삭제</button>
+                    </div>
+                </div>
+
+                <div class="info-bar">
+                    <span id="statusText">준비</span>
+                    <span id="statsText"></span>
+                </div>
+
+                <div class="file-list" id="fileList">
+                    <div class="empty-state">
+                        <p>📂 스캔을 시작하려면 '스캔' 버튼을 눌러주세요</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 오른쪽: 미리보기 -->
+            <aside class="preview-section">
+                <div class="section-header">
+                    <h2>미리보기</h2>
+                    <button id="openSteamBtn" class="btn btn-sm btn-primary" style="display:none;">
+                        🌐 Steam 페이지
+                    </button>
+                </div>
+
+                <div class="preview-container" id="previewContainer">
+                    <div class="preview-placeholder">
+                        <p>항목을 선택하면<br>미리보기가 표시됩니다</p>
+                    </div>
+                </div>
+
+                <div class="preview-info" id="previewInfo">
+                    <!-- 동적으로 채워짐 -->
+                </div>
+            </aside>
+        </main>
+
+        <!-- 하단 상태바 -->
+        <footer class="footer">
+            <div class="progress-container" id="progressContainer" style="display:none;">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <span id="progressText">스캔 중...</span>
+            </div>
+            <div class="footer-info">
+                <span id="totalSizeText"></span>
+                <span id="selectedCountText"></span>
+            </div>
+        </footer>
+    </div>
+
+    <script src="main.js"></script>
+</body>
+</html>

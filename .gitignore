@@ -1,0 +1,38 @@
+# Rust
+/src-tauri/target/
+**/*.rs.bk
+*.pdb
+
+# Tauri
+/src-tauri/Cargo.lock
+
+# Build outputs
+*.exe
+*.msi
+*.dmg
+*.deb
+*.rpm
+*.AppImage
+wallpaper-cleaner.exe
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Temporary
+*.tmp
+*.temp

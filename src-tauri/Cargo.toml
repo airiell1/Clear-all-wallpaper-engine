@@ -1,0 +1,36 @@
+[package]
+name = "wallpaper-cleaner"
+version = "0.1.0"
+description = "Ultra-fast Wallpaper Engine workshop cleaner"
+authors = ["airiell1"]
+license = ""
+repository = "https://github.com/airiell1/Clear-all-wallpaper-engine"
+edition = "2021"
+
+[lib]
+name = "wallpaper_cleaner_lib"
+crate-type = ["staticlib", "cdylib", "lib"]
+
+[[bin]]
+name = "wallpaper-cleaner"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["protocol-asset"] }
+tauri-plugin-opener = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+rayon = "1.10"
+walkdir = "2.5"
+
+[target.'cfg(windows)'.dependencies]
+winreg = "0.52"
+
+[profile.release]
+lto = true
+opt-level = "z"
+codegen-units = 1
+strip = true
