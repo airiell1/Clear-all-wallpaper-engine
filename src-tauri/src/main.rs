@@ -8,7 +8,7 @@ mod steam;
 
 use file_ops::{delete_paths, get_total_size, DeleteResult};
 use project::{read_project_json, ProjectInfo, WallpaperType};
-use scanner::{scan_folder_parallel, scan_folder_simple, FolderInfo};
+use scanner::{find_empty_folders, scan_folder_parallel, scan_folder_simple, FolderInfo};
 use steam::{find_steam_path, get_workshop_url, SteamInfo};
 
 /// 폴더 스캔 (병렬 처리)
@@ -86,6 +86,12 @@ fn get_type_korean(wallpaper_type: String) -> String {
         .to_string()
 }
 
+/// 빈 폴더 찾기
+#[tauri::command]
+fn find_empty(path: String, depth: usize) -> Result<Vec<String>, String> {
+    find_empty_folders(&path, depth)
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
@@ -99,6 +105,7 @@ fn main() {
             format_size,
             get_type_icon,
             get_type_korean,
+            find_empty,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

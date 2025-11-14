@@ -179,6 +179,50 @@ pub fn scan_folder_simple(
     Ok(results)
 }
 
+/// 빈 폴더 찾기 (병렬 처리)
+pub fn find_empty_folders(root_path: &str, depth: usize) -> Result<Vec<String>, String> {
+    let root = Path::new(root_path);
+
+    if !root.exists() {
+        return Err(format!("경로가 존재하지 않습니다: {}", root_path));
+    }
+
+    // 모든 폴더 수집
+    let folders: Vec<PathBuf> = WalkDir::new(root_path)
+        .min_depth(1)
+        .max_depth(if depth == 999 { usize::MAX } else { depth })
+        .follow_links(false)
+        .into_iter()
+        .filter_map(|e| e.ok())
+        .filter(|e| e.file_type().is_dir())
+        .map(|e| e.path().to_path_buf())
+        .collect();
+
+    // 병렬로 빈 폴더 확인
+    let empty_folders: Vec<String> = folders
+        .par_iter()
+        .filter(|path| is_folder_empty(path))
+        .map(|path| path.to_string_lossy().to_string())
+        .collect();
+
+    Ok(empty_folders)
+}
+
+/// 폴더가 비어있는지 확인
+fn is_folder_empty(path: &Path) -> bool {
+    if let Ok(entries) = fs::read_dir(path) {
+        // 하나라도 항목이 있으면 비어있지 않음
+        for entry in entries {
+            if entry.is_ok() {
+                return false;
+            }
+        }
+        true // 아무것도 없으면 빈 폴더
+    } else {
+        false // 읽을 수 없으면 빈 폴더로 간주하지 않음
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

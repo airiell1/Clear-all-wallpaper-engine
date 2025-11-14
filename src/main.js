@@ -6,6 +6,7 @@ let currentPath = '';
 let scanResults = [];
 let selectedItems = new Set();
 let projectInfoCache = new Map();
+let emptyFolders = []; // 빈 폴더 목록
 
 // 초기화
 document.addEventListener('DOMContentLoaded', async () => {
@@ -36,6 +37,8 @@ function setupEventListeners() {
     document.getElementById('selectAllBtn').addEventListener('click', selectAll);
     document.getElementById('deselectAllBtn').addEventListener('click', deselectAll);
     document.getElementById('openSteamBtn').addEventListener('click', openSteamPage);
+    document.getElementById('findEmptyBtn').addEventListener('click', findEmptyFolders);
+    document.getElementById('deleteEmptyBtn').addEventListener('click', deleteAllEmpty);
 
     // 필터 변경 시 재표시
     document.getElementById('typeFilter').addEventListener('change', displayResults);
@@ -149,11 +152,15 @@ function createFileItem(item) {
     const title = info && info.title ? ` - ${info.title}` : '';
     const sizeFormatted = formatSize(item.size);
 
+    // 빈 폴더인 경우 특별한 클래스 추가
+    const emptyClass = item.is_empty ? ' empty-folder' : '';
+    const emptyBadge = item.is_empty ? ' <span class="empty-badge">📭 빈 폴더</span>' : '';
+
     return `
-        <div class="file-item" data-path="${item.path}">
+        <div class="file-item${emptyClass}" data-path="${item.path}">
             <input type="checkbox" class="item-checkbox" data-path="${item.path}">
             <span class="item-icon">${icon}${typeIcon}</span>
-            <span class="item-name">${item.name}${title}</span>
+            <span class="item-name">${item.name}${title}${emptyBadge}</span>
             <span class="item-size">${sizeFormatted}</span>
         </div>
     `;
@@ -353,4 +360,98 @@ function showProgress(text) {
 
 function hideProgress() {
     document.getElementById('progressContainer').style.display = 'none';
+}
+
+// 빈 폴더 찾기
+async function findEmptyFolders() {
+    if (!currentPath) {
+        alert('경로를 선택해주세요');
+        return;
+    }
+
+    const depth = parseInt(document.querySelector('input[name="depth"]:checked').value);
+
+    showProgress('빈 폴더 검색 중...');
+    showStatus('📭 빈 폴더 검색 중...');
+
+    try {
+        emptyFolders = await invoke('find_empty', {
+            path: currentPath,
+            depth: depth
+        });
+
+        hideProgress();
+
+        if (emptyFolders.length === 0) {
+            showStatus('✅ 빈 폴더가 없습니다!');
+            alert('빈 폴더가 없습니다!');
+            document.getElementById('deleteEmptyBtn').style.display = 'none';
+            return;
+        }
+
+        showStatus(`📭 빈 폴더 ${emptyFolders.length}개 발견!`);
+
+        // 빈 폴더를 scanResults에 추가하여 표시
+        scanResults = emptyFolders.map(path => ({
+            path: path,
+            name: path.split('\\').pop() || path.split('/').pop(),
+            size: 0,
+            is_file: false,
+            level: 0,
+            parent: null,
+            is_empty: true // 빈 폴더 표시
+        }));
+
+        selectedItems.clear();
+        displayResults();
+
+        // "빈 폴더 모두 삭제" 버튼 표시
+        document.getElementById('deleteEmptyBtn').style.display = 'inline-block';
+
+        alert(`빈 폴더 ${emptyFolders.length}개를 찾았습니다.\n목록을 확인하고 삭제할 수 있습니다.`);
+
+    } catch (error) {
+        hideProgress();
+        showStatus('❌ 빈 폴더 검색 실패: ' + error);
+        alert('빈 폴더 검색 실패: ' + error);
+    }
+}
+
+// 빈 폴더 모두 삭제
+async function deleteAllEmpty() {
+    if (emptyFolders.length === 0) {
+        alert('삭제할 빈 폴더가 없습니다');
+        return;
+    }
+
+    if (!confirm(`${emptyFolders.length}개의 빈 폴더를 모두 삭제하시겠습니까?\n\n⚠️ 이 작업은 되돌릴 수 없습니다!`)) {
+        return;
+    }
+
+    showProgress('빈 폴더 삭제 중...');
+    showStatus('🗑️ 빈 폴더 삭제 중...');
+
+    try {
+        const result = await invoke('delete_items', { paths: emptyFolders });
+
+        hideProgress();
+
+        if (result.failed > 0) {
+            alert(`삭제 완료\n성공: ${result.success}개\n실패: ${result.failed}개\n\n${result.failed_items.map(f => f.path + ': ' + f.error).join('\n')}`);
+        } else {
+            showStatus(`✅ ${result.success}개 빈 폴더 삭제 완료!`);
+            alert(`${result.success}개의 빈 폴더를 삭제했습니다!`);
+        }
+
+        // 빈 폴더 목록 초기화
+        emptyFolders = [];
+        scanResults = [];
+        document.getElementById('deleteEmptyBtn').style.display = 'none';
+        displayResults();
+
+    } catch (error) {
+        hideProgress();
+        showStatus('❌ 삭제 실패: ' + error);
+        alert('삭제 실패: ' + error);
+    }
 }
