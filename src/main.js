@@ -56,6 +56,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     await initializeSteamPath();
     setupEventListeners();
     setupKeyboardShortcuts();
+    setupContextMenu();
     console.log('✅ Setup complete');
 });
 
@@ -88,9 +89,11 @@ function setupEventListeners() {
     document.getElementById('deleteBtn').addEventListener('click', deleteSelected);
     document.getElementById('selectAllBtn').addEventListener('click', selectAll);
     document.getElementById('deselectAllBtn').addEventListener('click', deselectAll);
+    document.getElementById('collapseAllBtn').addEventListener('click', collapseAll);
     document.getElementById('openSteamBtn').addEventListener('click', openSteamPage);
     document.getElementById('findEmptyBtn').addEventListener('click', findEmptyFolders);
     document.getElementById('deleteEmptyBtn').addEventListener('click', deleteAllEmpty);
+    document.getElementById('browseBackupBtn').addEventListener('click', browseBackupFolder);
 
     // 경로 입력 시 currentPath 업데이트
     document.getElementById('pathInput').addEventListener('input', (e) => {
@@ -132,8 +135,9 @@ function setupKeyboardShortcuts() {
             }
         }
 
-        // Escape 키: 선택 해제
+        // Escape 키: 선택 해제 및 컨텍스트 메뉴 닫기
         if (e.key === 'Escape') {
+            hideContextMenu();
             deselectAll();
             selectedItem = null;
             displayResults();
@@ -157,6 +161,73 @@ function setupKeyboardShortcuts() {
     });
 }
 
+// 컨텍스트 메뉴 설정
+let contextMenuTarget = null;
+
+function setupContextMenu() {
+    const contextMenu = document.getElementById('contextMenu');
+
+    // 아무 곳이나 클릭하면 메뉴 닫기
+    document.addEventListener('click', () => {
+        hideContextMenu();
+    });
+
+    // 컨텍스트 메뉴 아이템 클릭
+    contextMenu.querySelectorAll('.context-menu-item').forEach(item => {
+        item.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            const action = item.dataset.action;
+
+            if (contextMenuTarget) {
+                switch (action) {
+                    case 'open':
+                        await openFolder(contextMenuTarget);
+                        break;
+                    case 'backup':
+                        await backupItem(contextMenuTarget);
+                        break;
+                    case 'delete':
+                        await deleteItem(contextMenuTarget);
+                        break;
+                    case 'select':
+                        toggleItemSelection(contextMenuTarget);
+                        break;
+                }
+            }
+
+            hideContextMenu();
+        });
+    });
+}
+
+function showContextMenu(x, y, path) {
+    const contextMenu = document.getElementById('contextMenu');
+    contextMenuTarget = path;
+
+    contextMenu.style.left = x + 'px';
+    contextMenu.style.top = y + 'px';
+    contextMenu.style.display = 'block';
+}
+
+function hideContextMenu() {
+    const contextMenu = document.getElementById('contextMenu');
+    contextMenu.style.display = 'none';
+    contextMenuTarget = null;
+}
+
+function toggleItemSelection(path) {
+    const checkbox = document.querySelector(`.item-checkbox[data-path="${path}"]`);
+    if (checkbox) {
+        checkbox.checked = !checkbox.checked;
+        if (checkbox.checked) {
+            selectedItems.add(path);
+        } else {
+            selectedItems.delete(path);
+        }
+        updateStats();
+    }
+}
+
 // 폴더 선택
 async function browseFolder() {
     if (!dialog) {
@@ -168,17 +239,44 @@ async function browseFolder() {
         const selected = await dialog.open({
             directory: true,
             multiple: false,
-            title: '폴더 선택'
+            title: '스캔할 폴더 선택'
         });
 
         if (selected) {
             currentPath = selected;
             document.getElementById('pathInput').value = selected;
             console.log('Selected folder:', selected);
+            showStatus('✅ 폴더 선택됨: ' + selected);
         }
     } catch (error) {
         console.error('Failed to open dialog:', error);
         alert('폴더 선택 실패: ' + error);
+    }
+}
+
+// 백업 폴더 선택
+async function browseBackupFolder() {
+    if (!dialog) {
+        alert('Dialog API를 사용할 수 없습니다. 경로를 직접 입력해주세요.');
+        return;
+    }
+
+    try {
+        const selected = await dialog.open({
+            directory: true,
+            multiple: false,
+            title: '백업 폴더 선택'
+        });
+
+        if (selected) {
+            backupPath = selected;
+            document.getElementById('backupPathInput').value = selected;
+            console.log('Selected backup folder:', selected);
+            showStatus('✅ 백업 폴더 설정됨: ' + selected);
+        }
+    } catch (error) {
+        console.error('Failed to open backup dialog:', error);
+        alert('백업 폴더 선택 실패: ' + error);
     }
 }
 
@@ -269,7 +367,16 @@ function displayResults() {
     }
 
     if (filtered.length === 0) {
-        fileList.innerHTML = '<div class="empty-state"><p>결과 없음</p></div>';
+        fileList.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-icon">📭</div>
+                <p>결과 없음</p>
+                <div class="empty-hint">
+                    폴더를 선택하고 "스캔" 버튼을 눌러주세요.<br>
+                    또는 타입 필터를 "All"로 변경해보세요.
+                </div>
+            </div>
+        `;
         return;
     }
 
@@ -279,6 +386,15 @@ function displayResults() {
 
     // 이벤트 리스너 설정
     attachTreeEventListeners();
+
+    // Collapse All 버튼 표시/숨김
+    const collapseBtn = document.getElementById('collapseAllBtn');
+    if (expandedFolders.size > 0) {
+        collapseBtn.style.display = 'inline-block';
+        collapseBtn.textContent = `📁 Collapse All (${expandedFolders.size})`;
+    } else {
+        collapseBtn.style.display = 'none';
+    }
 
     updateStats();
 }
@@ -345,16 +461,20 @@ function createFileItem(item, hasChildren = false, isExpanded = false, isSelecte
     // 들여쓰기
     const indent = depth * 20;
 
+    // Full name for tooltip
+    const fullName = `${item.name}${title}`;
+
     return `
         <div class="file-item${emptyClass}${selectedClass}${expandableClass}"
              data-path="${item.path}"
              data-is-file="${item.is_file}"
              data-has-children="${hasChildren}"
-             style="padding-left: ${indent + 15}px;">
+             style="padding-left: ${indent + 15}px;"
+             title="${fullName}">
             ${expandIcon}
-            <input type="checkbox" class="item-checkbox" data-path="${item.path}">
+            <input type="checkbox" class="item-checkbox" data-path="${item.path}" onclick="event.stopPropagation()">
             <span class="item-icon">${icon}${typeIcon}</span>
-            <span class="item-name">${item.name}${title}${emptyBadge}</span>
+            <span class="item-name" title="${fullName}">${item.name}${title}${emptyBadge}</span>
             <span class="item-size">${sizeFormatted}</span>
         </div>
     `;
@@ -429,6 +549,15 @@ function attachTreeEventListeners() {
                 }
             }
         });
+
+        // 우클릭 컨텍스트 메뉴
+        elem.addEventListener('contextmenu', (e) => {
+            if (e.target.classList.contains('item-checkbox')) return;
+
+            e.preventDefault();
+            const path = elem.dataset.path;
+            showContextMenu(e.pageX, e.pageY, path);
+        });
     });
 }
 
@@ -487,6 +616,13 @@ function deselectAll() {
     });
     selectedItems.clear();
     updateStats();
+}
+
+// 모든 폴더 접기
+function collapseAll() {
+    expandedFolders.clear();
+    displayResults();
+    showStatus('📁 모든 폴더 접기 완료');
 }
 
 // 선택 항목 삭제
