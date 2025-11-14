@@ -7,7 +7,7 @@ let projectInfoCache = new Map();
 let emptyFolders = []; // 빈 폴더 목록
 
 // Tauri API (로드 후 사용)
-let invoke, open;
+let invoke, open, dialog;
 
 // 초기화
 document.addEventListener('DOMContentLoaded', async () => {
@@ -29,6 +29,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         } else if (window.__TAURI__.plugin?.shell) {
             open = window.__TAURI__.plugin.shell.open;
             console.log('✅ plugin.shell.open loaded');
+        }
+
+        if (window.__TAURI__.dialog) {
+            dialog = window.__TAURI__.dialog;
+            console.log('✅ dialog loaded');
+        } else if (window.__TAURI__.plugin?.dialog) {
+            dialog = window.__TAURI__.plugin.dialog;
+            console.log('✅ plugin.dialog loaded');
         }
 
         console.log('✅ Tauri API loaded');
@@ -71,6 +79,7 @@ async function initializeSteamPath() {
 
 // 이벤트 리스너 설정
 function setupEventListeners() {
+    document.getElementById('browseBtn').addEventListener('click', browseFolder);
     document.getElementById('scanBtn').addEventListener('click', scanFolder);
     document.getElementById('deleteBtn').addEventListener('click', deleteSelected);
     document.getElementById('selectAllBtn').addEventListener('click', selectAll);
@@ -102,6 +111,31 @@ function setupEventListeners() {
     document.getElementById('typeFilter').addEventListener('change', displayResults);
 }
 
+// 폴더 선택
+async function browseFolder() {
+    if (!dialog) {
+        alert('Dialog API를 사용할 수 없습니다. 경로를 직접 입력해주세요.');
+        return;
+    }
+
+    try {
+        const selected = await dialog.open({
+            directory: true,
+            multiple: false,
+            title: '폴더 선택'
+        });
+
+        if (selected) {
+            currentPath = selected;
+            document.getElementById('pathInput').value = selected;
+            console.log('Selected folder:', selected);
+        }
+    } catch (error) {
+        console.error('Failed to open dialog:', error);
+        alert('폴더 선택 실패: ' + error);
+    }
+}
+
 // 폴더 스캔
 async function scanFolder() {
     const depth = 999; // 전체 스캔
@@ -120,8 +154,8 @@ async function scanFolder() {
         const results = await invoke('scan_folder', {
             path: currentPath,
             depth: depth,
-            showFiles: showFiles,
-            minSize: minSize
+            show_files: showFiles,
+            min_size: minSize
         });
 
         scanResults = results;
@@ -147,7 +181,7 @@ async function loadProjectInfos(results) {
     const promises = folders.map(async (folder) => {
         if (!projectInfoCache.has(folder.path)) {
             try {
-                const info = await invoke('get_project_info', { folderPath: folder.path });
+                const info = await invoke('get_project_info', { folder_path: folder.path });
                 projectInfoCache.set(folder.path, info);
             } catch {
                 projectInfoCache.set(folder.path, null);
@@ -163,11 +197,18 @@ function displayResults() {
     const fileList = document.getElementById('fileList');
     const typeFilter = document.getElementById('typeFilter').value;
 
-    // 필터링
-    let filtered = scanResults;
+    // 필터링: 최상위 폴더만 표시 (Workshop ID 폴더들)
+    let filtered = scanResults.filter(item => {
+        // 파일 제외
+        if (item.is_file) return false;
+        // 빈 폴더 모드가 아닌 경우, level 0 또는 1만 표시 (최상위 Workshop 폴더들)
+        if (!item.is_empty && item.level > 1) return false;
+        return true;
+    });
+
+    // 타입 필터 적용
     if (typeFilter !== 'all') {
-        filtered = scanResults.filter(item => {
-            if (item.is_file) return false;
+        filtered = filtered.filter(item => {
             const info = projectInfoCache.get(item.path);
             return info && info.wallpaper_type === typeFilter;
         });
@@ -358,6 +399,9 @@ async function showPreview(path) {
     if (info) {
         const typeKorean = await invoke('get_type_korean', { wallpaperType: info.wallpaper_type });
 
+        // Escape path for use in onclick handlers
+        const escapedPath = path.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+
         previewInfo.innerHTML = `
             <h3>${info.title}</h3>
             <p><strong>타입:</strong> ${getTypeIcon(info.wallpaper_type)} ${typeKorean}</p>
@@ -366,8 +410,8 @@ async function showPreview(path) {
             <p><strong>태그:</strong> ${info.tags.join(', ') || '없음'}</p>
             <p><strong>Workshop ID:</strong> ${info.workshop_id || '없음'}</p>
             <div class="preview-actions" style="margin-top: 15px;">
-                <button class="btn btn-sm btn-primary" onclick="openFolder('${path}')">📁 폴더 열기</button>
-                <button class="btn btn-sm btn-success" onclick="backupFolder('${path}')">💾 백업</button>
+                <button class="btn btn-sm btn-primary" onclick="openFolder('${escapedPath}')">📁 폴더 열기</button>
+                <button class="btn btn-sm btn-success" onclick="backupFolder('${escapedPath}')">💾 백업</button>
             </div>
         `;
 
@@ -501,18 +545,29 @@ async function findEmptyFolders() {
             return;
         }
 
-        showStatus(`📭 빈 폴더 ${emptyFolders.length}개 발견!`);
+        // 빈 폴더의 level 계산 (currentPath 기준)
+        const rootComponents = currentPath.split(/[\\\/]/).length;
+        const emptyFoldersWithLevel = emptyFolders.map(path => {
+            const pathComponents = path.split(/[\\\/]/).length;
+            const level = pathComponents - rootComponents;
+            return {
+                path: path,
+                name: path.split('\\').pop() || path.split('/').pop(),
+                size: 0,
+                is_file: false,
+                level: level,
+                parent: null,
+                is_empty: true // 빈 폴더 표시
+            };
+        });
+
+        // 최상위 빈 폴더만 필터링 (level 1만)
+        const topLevelEmpty = emptyFoldersWithLevel.filter(f => f.level === 1);
+
+        showStatus(`📭 최상위 빈 폴더 ${topLevelEmpty.length}개 발견! (전체 ${emptyFolders.length}개)`);
 
         // 빈 폴더를 scanResults에 추가하여 표시
-        scanResults = emptyFolders.map(path => ({
-            path: path,
-            name: path.split('\\').pop() || path.split('/').pop(),
-            size: 0,
-            is_file: false,
-            level: 0,
-            parent: null,
-            is_empty: true // 빈 폴더 표시
-        }));
+        scanResults = topLevelEmpty;
 
         selectedItems.clear();
         displayResults();
