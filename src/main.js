@@ -154,8 +154,8 @@ async function scanFolder() {
         const results = await invoke('scan_folder', {
             path: currentPath,
             depth: depth,
-            showFiles: showFiles,
-            minSize: minSize
+            show_files: showFiles,
+            min_size: minSize
         });
 
         scanResults = results;
@@ -181,7 +181,7 @@ async function loadProjectInfos(results) {
     const promises = folders.map(async (folder) => {
         if (!projectInfoCache.has(folder.path)) {
             try {
-                const info = await invoke('get_project_info', { folderPath: folder.path });
+                const info = await invoke('get_project_info', { folder_path: folder.path });
                 projectInfoCache.set(folder.path, info);
             } catch {
                 projectInfoCache.set(folder.path, null);
