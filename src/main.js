@@ -201,8 +201,8 @@ function displayResults() {
     let filtered = scanResults.filter(item => {
         // 파일 제외
         if (item.is_file) return false;
-        // 빈 폴더 모드가 아닌 경우, level 0 또는 1만 표시 (최상위 Workshop 폴더들)
-        if (!item.is_empty && item.level > 1) return false;
+        // 빈 폴더 모드가 아닌 경우, level 1만 표시 (최상위 Workshop 폴더들)
+        if (!item.is_empty && item.level !== 1) return false;
         return true;
     });
 
@@ -397,7 +397,7 @@ async function showPreview(path) {
 
     // 정보 표시
     if (info) {
-        const typeKorean = await invoke('get_type_korean', { wallpaperType: info.wallpaper_type });
+        const typeKorean = await invoke('get_type_korean', { wallpaper_type: info.wallpaper_type });
 
         // Escape path for use in onclick handlers
         const escapedPath = path.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
@@ -419,7 +419,7 @@ async function showPreview(path) {
             const openBtn = document.getElementById('openSteamBtn');
             openBtn.style.display = 'block';
             openBtn.onclick = async () => {
-                const url = await invoke('get_steam_url', { workshopId: info.workshop_id });
+                const url = await invoke('get_steam_url', { workshop_id: info.workshop_id });
                 await open(url);
             };
         }
