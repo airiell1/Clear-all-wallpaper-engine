@@ -1,5 +1,6 @@
 // 전역 상태
 let currentPath = '';
+let backupPath = ''; // 백업 폴더 경로
 let scanResults = [];
 let selectedItems = new Set();
 let projectInfoCache = new Map();
@@ -84,13 +85,26 @@ function setupEventListeners() {
         console.log('Path updated:', currentPath);
     });
 
+    // 백업 폴더 설정
+    document.getElementById('setBackupBtn').addEventListener('click', () => {
+        backupPath = document.getElementById('backupPathInput').value;
+        if (backupPath) {
+            showStatus('✅ 백업 폴더 설정됨: ' + backupPath);
+            console.log('Backup path set:', backupPath);
+        }
+    });
+
+    document.getElementById('backupPathInput').addEventListener('input', (e) => {
+        backupPath = e.target.value;
+    });
+
     // 필터 변경 시 재표시
     document.getElementById('typeFilter').addEventListener('change', displayResults);
 }
 
 // 폴더 스캔
 async function scanFolder() {
-    const depth = parseInt(document.querySelector('input[name="depth"]:checked').value);
+    const depth = 999; // 전체 스캔
     const showFiles = document.getElementById('showFiles').checked;
     const minSize = parseInt(document.getElementById('minSize').value);
 
@@ -106,8 +120,8 @@ async function scanFolder() {
         const results = await invoke('scan_folder', {
             path: currentPath,
             depth: depth,
-            showFiles: showFiles,
-            minSize: minSize
+            show_files: showFiles,
+            min_size: minSize
         });
 
         scanResults = results;
@@ -133,7 +147,7 @@ async function loadProjectInfos(results) {
     const promises = folders.map(async (folder) => {
         if (!projectInfoCache.has(folder.path)) {
             try {
-                const info = await invoke('get_project_info', { folderPath: folder.path });
+                const info = await invoke('get_project_info', { folder_path: folder.path });
                 projectInfoCache.set(folder.path, info);
             } catch {
                 projectInfoCache.set(folder.path, null);
@@ -181,6 +195,19 @@ function displayResults() {
             if (e.target.type !== 'checkbox') {
                 const path = elem.dataset.path;
                 showPreview(path);
+            }
+        });
+
+        // 더블클릭으로 폴더 열기
+        elem.addEventListener('dblclick', async (e) => {
+            if (e.target.type !== 'checkbox') {
+                const path = elem.dataset.path;
+                try {
+                    await open(path);
+                } catch (error) {
+                    console.error('Failed to open folder:', error);
+                    alert('폴더 열기 실패: ' + error);
+                }
             }
         });
     });
@@ -329,7 +356,7 @@ async function showPreview(path) {
 
     // 정보 표시
     if (info) {
-        const typeKorean = await invoke('get_type_korean', { wallpaperType: info.wallpaper_type });
+        const typeKorean = await invoke('get_type_korean', { wallpaper_type: info.wallpaper_type });
 
         previewInfo.innerHTML = `
             <h3>${info.title}</h3>
@@ -338,13 +365,17 @@ async function showPreview(path) {
             <p><strong>설명:</strong> ${info.description || '없음'}</p>
             <p><strong>태그:</strong> ${info.tags.join(', ') || '없음'}</p>
             <p><strong>Workshop ID:</strong> ${info.workshop_id || '없음'}</p>
+            <div class="preview-actions" style="margin-top: 15px;">
+                <button class="btn btn-sm btn-primary" onclick="openFolder('${path}')">📁 폴더 열기</button>
+                <button class="btn btn-sm btn-success" onclick="backupFolder('${path}')">💾 백업</button>
+            </div>
         `;
 
         if (info.workshop_id) {
             const openBtn = document.getElementById('openSteamBtn');
             openBtn.style.display = 'block';
             openBtn.onclick = async () => {
-                const url = await invoke('get_steam_url', { workshopId: info.workshop_id });
+                const url = await invoke('get_steam_url', { workshop_id: info.workshop_id });
                 await open(url);
             };
         }
@@ -359,6 +390,43 @@ function convertFileSrc(path) {
 // Steam 페이지 열기
 async function openSteamPage() {
     // showPreview에서 이미 처리됨
+}
+
+// 폴더 열기
+async function openFolder(path) {
+    try {
+        await open(path);
+    } catch (error) {
+        console.error('Failed to open folder:', error);
+        alert('폴더 열기 실패: ' + error);
+    }
+}
+
+// 폴더 백업
+async function backupFolder(sourcePath) {
+    if (!backupPath) {
+        alert('백업 폴더를 먼저 설정해주세요!');
+        return;
+    }
+
+    try {
+        showProgress('백업 중...');
+        showStatus('💾 백업 중...');
+
+        await invoke('copy_folder_cmd', {
+            source: sourcePath,
+            destination: backupPath
+        });
+
+        hideProgress();
+        showStatus('✅ 백업 완료!');
+        alert('백업이 완료되었습니다!\n\n' + backupPath);
+    } catch (error) {
+        hideProgress();
+        console.error('Failed to backup folder:', error);
+        showStatus('❌ 백업 실패: ' + error);
+        alert('백업 실패: ' + error);
+    }
 }
 
 // 통계 업데이트
@@ -413,7 +481,7 @@ async function findEmptyFolders() {
         return;
     }
 
-    const depth = parseInt(document.querySelector('input[name="depth"]:checked').value);
+    const depth = 999; // 전체 스캔
 
     showProgress('빈 폴더 검색 중...');
     showStatus('📭 빈 폴더 검색 중...');

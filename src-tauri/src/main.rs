@@ -6,7 +6,7 @@ mod project;
 mod scanner;
 mod steam;
 
-use file_ops::{delete_paths, get_total_size, DeleteResult};
+use file_ops::{copy_folder, delete_paths, get_total_size, DeleteResult};
 use project::{read_project_json, ProjectInfo, WallpaperType};
 use scanner::{find_empty_folders, scan_folder_parallel, FolderInfo};
 use steam::{find_steam_path, get_workshop_url, SteamInfo};
@@ -93,6 +93,12 @@ fn find_empty(path: String, depth: usize) -> Result<Vec<String>, String> {
     find_empty_folders(&path, depth)
 }
 
+/// 폴더 복사 (백업)
+#[tauri::command]
+fn copy_folder_cmd(source: String, destination: String) -> Result<(), String> {
+    copy_folder(&source, &destination)
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
@@ -107,6 +113,7 @@ fn main() {
             get_type_icon,
             get_type_korean,
             find_empty,
+            copy_folder_cmd,
         ])
         .setup(|app| {
             #[cfg(debug_assertions)]
