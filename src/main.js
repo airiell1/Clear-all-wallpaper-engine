@@ -413,7 +413,7 @@ async function backupFolder(sourcePath) {
         showProgress('백업 중...');
         showStatus('💾 백업 중...');
 
-        await invoke('copy_folder', {
+        await invoke('copy_folder_cmd', {
             source: sourcePath,
             destination: backupPath
         });
