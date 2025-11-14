@@ -1,6 +1,3 @@
-const { invoke } = window.__TAURI__.core;
-const { open } = window.__TAURI__.shell;
-
 // 전역 상태
 let currentPath = '';
 let scanResults = [];
@@ -8,9 +5,23 @@ let selectedItems = new Set();
 let projectInfoCache = new Map();
 let emptyFolders = []; // 빈 폴더 목록
 
+// Tauri API (로드 후 사용)
+let invoke, open;
+
 // 초기화
 document.addEventListener('DOMContentLoaded', async () => {
     console.log('🚀 App initialized');
+
+    // Wait for Tauri to be ready
+    if (window.__TAURI__) {
+        invoke = window.__TAURI__.core.invoke;
+        open = window.__TAURI__.shell.open;
+        console.log('✅ Tauri API loaded');
+    } else {
+        console.error('❌ Tauri API not available');
+        alert('Tauri API를 로드할 수 없습니다. 앱을 다시 시작해주세요.');
+        return;
+    }
 
     // Initialize i18n first
     i18n.initLanguage();
