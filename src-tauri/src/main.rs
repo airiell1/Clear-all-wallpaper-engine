@@ -8,7 +8,7 @@ mod steam;
 
 use file_ops::{delete_paths, get_total_size, DeleteResult};
 use project::{read_project_json, ProjectInfo, WallpaperType};
-use scanner::{find_empty_folders, scan_folder_parallel, scan_folder_simple, FolderInfo};
+use scanner::{find_empty_folders, scan_folder_parallel, FolderInfo};
 use steam::{find_steam_path, get_workshop_url, SteamInfo};
 
 /// 폴더 스캔 (병렬 처리)

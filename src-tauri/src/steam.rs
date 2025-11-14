@@ -97,6 +97,7 @@ pub fn get_workshop_url(workshop_id: &str) -> String {
 
 /// 추가 Steam 라이브러리 경로 찾기
 #[cfg(windows)]
+#[allow(dead_code)]
 pub fn find_additional_libraries() -> Vec<String> {
     use std::fs;
     use winreg::enums::*;
@@ -142,6 +143,7 @@ pub fn find_additional_libraries() -> Vec<String> {
 }
 
 /// VDF 파일에서 따옴표로 둘러싸인 값 추출
+#[allow(dead_code)]
 fn extract_quoted_value(line: &str) -> Option<String> {
     let parts: Vec<&str> = line.split('\"').collect();
     if parts.len() >= 4 {
