@@ -30,9 +30,6 @@
   "bundle": {
     "active": true,
     "targets": "all",
-    "icon": [
-      "icons/icon.png"
-    ],
     "windows": {
       "wix": {
         "language": "ko-KR"
