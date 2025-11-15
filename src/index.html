@@ -30,7 +30,8 @@
                 <div class="path-group" style="margin-top: 10px;">
                     <label style="margin-right: 10px;"><strong>💾 백업 폴더:</strong></label>
                     <input type="text" id="backupPathInput" placeholder="백업 폴더 경로 입력...">
-                    <button id="setBackupBtn" class="btn btn-primary">설정</button>
+                    <button id="browseBackupBtn" class="btn btn-primary">📁 찾아보기</button>
+                    <button id="setBackupBtn" class="btn btn-success">✅ 설정</button>
                 </div>
 
                 <div class="options">
@@ -64,6 +65,7 @@
                 <div class="section-header">
                     <h2 data-i18n="folderList">Folder List</h2>
                     <div class="section-actions">
+                        <button id="collapseAllBtn" class="btn btn-sm" style="display:none;">📁 Collapse All</button>
                         <button id="selectAllBtn" class="btn btn-sm" data-i18n="selectAll">Select All</button>
                         <button id="deselectAllBtn" class="btn btn-sm" data-i18n="deselectAll">Deselect All</button>
                         <button id="deleteEmptyBtn" class="btn btn-sm btn-warning" style="display:none;" data-i18n="deleteEmpty">🗑️ Delete Empty</button>
@@ -115,8 +117,23 @@
             <div class="footer-info">
                 <span id="totalSizeText"></span>
                 <span id="selectedCountText"></span>
+                <span id="shortcutHints" class="shortcut-hints" title="Keyboard Shortcuts">
+                    ⌨️ <span class="shortcut">Delete</span> 삭제 |
+                    <span class="shortcut">Esc</span> 선택해제 |
+                    <span class="shortcut">Ctrl+A</span> 전체선택 |
+                    <span class="shortcut">F5</span> 재스캔
+                </span>
             </div>
         </footer>
+    </div>
+
+    <!-- Context Menu -->
+    <div id="contextMenu" class="context-menu" style="display: none;">
+        <div class="context-menu-item" data-action="open">📁 폴더 열기</div>
+        <div class="context-menu-item" data-action="backup">💾 백업</div>
+        <div class="context-menu-item" data-action="delete">🗑️ 삭제</div>
+        <div class="context-menu-divider"></div>
+        <div class="context-menu-item" data-action="select">✅ 선택/해제</div>
     </div>
 
     <script src="main.js"></script>
